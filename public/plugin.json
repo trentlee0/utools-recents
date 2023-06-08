@@ -1,0 +1,22 @@
+{
+  "main": "index.html",
+  "logo": "logo.png",
+  "preload": "preload.js",
+  "development": {
+    "main": "http://localhost:5173/"
+  },
+  "pluginSetting": {
+    "single": false,
+    "height": 480
+  },
+  "features": [
+    {
+      "code": "recents-setting",
+      "explain": "最近文档设置",
+      "cmds": [
+        "最近文档设置",
+        "Recents Setting"
+      ]
+    }
+  ]
+}
