@@ -181,7 +181,7 @@ if (props.dynamic) {
         @mouseover="handleMouseOver(getWindowPosition() + num - 1)"
         @click="emit('select', getWindowPosition() + num - 1)"
       >
-        <div class="px-[16px]">{{ selectModifier }}+{{ num % 10 }}</div>
+        <div class="px-[15px]">{{ selectModifier }}+{{ num % 10 }}</div>
       </div>
     </div>
   </div>

@@ -48,18 +48,19 @@ defineProps<{
 </template>
 
 <style scoped lang="scss">
+$padding-width: 16px;
+
 .item {
-  $padding-x: 16px;
   height: 48px;
-  padding-left: $padding-x;
-  padding-right: $padding-x;
+  padding-left: $padding-width;
+  padding-right: $padding-width;
 }
 
 .item-icon {
   $icon-size: 36px;
   height: $icon-size;
   width: $icon-size;
-  margin-right: 8px;
+  margin-right: $padding-width - 1px;
   @apply flex-none bg-cover bg-center bg-no-repeat;
 }
 
