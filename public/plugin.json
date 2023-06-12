@@ -9,6 +9,9 @@
     "single": false,
     "height": 480
   },
+  "platform": [
+    "darwin"
+  ],
   "features": [
     {
       "code": "recents-setting",
