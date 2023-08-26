@@ -15,6 +15,7 @@ import { setSubInput, setSubInputValue, subInputFocus } from 'utools-api'
 import { commonStore, useAppsStore } from '@/store'
 import * as featureApi from '@/api/featureApi'
 import AppInfo from '@/models/AppInfo'
+import { match } from 'pinyin-pro'
 
 const settingStore = useAppsStore()
 
@@ -71,7 +72,19 @@ async function handleSelect(index: number) {
 
 setSubInput((e: { text: string }) => {
   const words = e.text.split(/ +/)
-  filteredList.value = searchList(list.value, words, ['title', 'subtitle'])
+  let arr: Array<ListItem> = list.value
+  for (const word of words) {
+    if (!word) continue
+    const lowerCase = word.toLowerCase()
+    arr = arr.filter((val) => {
+      if (match(val.title, word) !== null) return true
+      return (
+        val.title.toLowerCase() === lowerCase ||
+        val.subtitle?.toLowerCase() === lowerCase
+      )
+    })
+  }
+  filteredList.value = arr
   activeIndex.value = getActiveIndex(filteredList.value)
 }, '搜索')
 
