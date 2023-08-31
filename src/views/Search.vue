@@ -79,8 +79,8 @@ setSubInput((e: { text: string }) => {
     arr = arr.filter((val) => {
       if (match(val.title, word) !== null) return true
       return (
-        val.title.toLowerCase() === lowerCase ||
-        val.subtitle?.toLowerCase() === lowerCase
+        val.title.toLowerCase().includes(lowerCase) ||
+        val.subtitle?.toLowerCase().includes(lowerCase)
       )
     })
   }
