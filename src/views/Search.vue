@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import List from '@/components/List.vue'
 import { ref } from 'vue'
-import { onStartTyping } from '@vueuse/core'
-import { hideAndOutPlugin, searchList } from 'utools-utils'
+import { onKeyDown, onStartTyping } from '@vueuse/core'
+import { hideAndOutPlugin } from 'utools-utils'
 import {
   appRecentDocuments,
   finderRecents,
@@ -11,7 +11,12 @@ import {
   existsPath
 } from '@/preload'
 import NProgress from '@/utils/nprogress'
-import { setSubInput, setSubInputValue, subInputFocus } from 'utools-api'
+import {
+  hideMainWindow,
+  setSubInput,
+  setSubInputValue,
+  subInputFocus
+} from 'utools-api'
 import { commonStore, useAppsStore } from '@/store'
 import * as featureApi from '@/api/featureApi'
 import AppInfo from '@/models/AppInfo'
@@ -58,17 +63,29 @@ async function getList() {
   NProgress.done()
 }
 
-async function handleSelect(index: number) {
-  const item = filteredList.value[index]
-  if (!item.subtitle) return
-
-  if (existsPath(item.subtitle)) {
-    await openFile(item.subtitle, app.value?.path)
-    hideAndOutPlugin()
-  } else {
-    utools.showNotification('文件或文件夹路径不存在！')
+function checkItemSubtitle(itemIndex: number) {
+  const { subtitle } = filteredList.value[itemIndex]
+  if (subtitle && existsPath(subtitle)) {
+    return subtitle
   }
+  const msg = '文件或文件夹路径不存在！'
+  utools.showNotification(msg)
+  throw new Error(msg)
 }
+
+async function handleSelect(itemIndex: number) {
+  const subtitle = checkItemSubtitle(itemIndex)
+  await openFile(subtitle, app.value?.path)
+  hideAndOutPlugin()
+}
+
+onKeyDown(['Meta', 'Enter'], async (e) => {
+  if (e.key === 'Enter' && e.metaKey) {
+    const subtitle = checkItemSubtitle(activeIndex.value)
+    utools.shellShowItemInFolder(subtitle)
+    hideMainWindow()
+  }
+})
 
 setSubInput((e: { text: string }) => {
   const words = e.text.split(/ +/)

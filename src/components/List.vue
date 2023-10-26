@@ -105,7 +105,13 @@ onKeyDown(['Meta', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], (e) => {
 })
 
 onKeyDown(['Enter'], (e) => {
-  if (e.key === 'Enter') {
+  if (
+    e.key === 'Enter' &&
+    !e.metaKey &&
+    !e.shiftKey &&
+    !e.shiftKey &&
+    !e.altKey
+  ) {
     emit('select', props.activeIndex)
   }
 })
