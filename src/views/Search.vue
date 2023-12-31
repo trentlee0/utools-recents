@@ -2,25 +2,14 @@
 import List from '@/components/List.vue'
 import { ref } from 'vue'
 import { onKeyDown, onStartTyping } from '@vueuse/core'
-import { hideAndOutPlugin } from 'utools-utils'
-import {
-  appRecentDocuments,
-  finderRecents,
-  getFileName,
-  openFile,
-  existsPath
-} from '@/preload'
+import { hideAndOutPlugin, pinyinMatch } from 'utools-utils'
+import { appRecentDocuments, finderRecents, getFileName, openFile, existsPath } from '@/preload'
 import NProgress from '@/utils/nprogress'
-import {
-  hideMainWindow,
-  setSubInput,
-  setSubInputValue,
-  subInputFocus
-} from 'utools-api'
+import { hideMainWindow, setSubInput, setSubInputValue, subInputFocus } from 'utools-api'
 import { commonStore, useAppsStore } from '@/store'
 import * as featureApi from '@/api/featureApi'
 import AppInfo from '@/models/AppInfo'
-import { match } from 'pinyin-pro'
+import * as pinyin from 'tiny-pinyin'
 
 const settingStore = useAppsStore()
 
@@ -48,9 +37,7 @@ async function getList() {
   const id = featureApi.getId(commonStore.action.code)
   app.value = settingStore.apps.find((app) => app.id === id)
 
-  const res = app.value?.isFinder
-    ? await finderRecents(id)
-    : await appRecentDocuments(id)
+  const res = app.value?.isFinder ? await finderRecents(id) : await appRecentDocuments(id)
 
   list.value = res.map((file) => ({
     title: getFileName(file),
@@ -87,17 +74,22 @@ onKeyDown(['Meta', 'Enter'], async (e) => {
   }
 })
 
+function getPinyin(s?: string) {
+  return s ? pinyin.parse(s).map((item) => item.target) : ''
+}
+
 setSubInput((e: { text: string }) => {
   const words = e.text.split(/ +/)
   let arr: Array<ListItem> = list.value
-  for (const word of words) {
+  for (let word of words) {
     if (!word) continue
-    const lowerCase = word.toLowerCase()
-    arr = arr.filter((val) => {
-      if (match(val.title, word) !== null) return true
+    word = word.toUpperCase()
+    arr = arr.filter((item) => {
       return (
-        val.title.toLowerCase().includes(lowerCase) ||
-        val.subtitle?.toLowerCase().includes(lowerCase)
+        item.title.toUpperCase().includes(word) ||
+        item.subtitle?.toUpperCase().includes(word) ||
+        !!pinyinMatch(getPinyin(item.title), word, { case: 'sensitive' }) ||
+        !!pinyinMatch(getPinyin(item.subtitle), word, { case: 'sensitive' })
       )
     })
   }

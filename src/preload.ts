@@ -5,38 +5,47 @@ import { execCommand, spawnCommand } from 'utools-utils/preload'
 import AppInfo from '@/models/AppInfo'
 
 const baseRecentsDir = `${homedir()}/Library/Application Support/com.apple.sharedfilelist/`
-const appsRecentsDir =
-  baseRecentsDir + 'com.apple.LSSharedFileList.ApplicationRecentDocuments/'
+const appsRecentsDir = baseRecentsDir + 'com.apple.LSSharedFileList.ApplicationRecentDocuments/'
 
-function getScript(sfl2File: string) {
-  return `
-    ObjC.import('Foundation')
-    let paths = []
-    try {
-      let data = \\$.NSData.dataWithContentsOfFile('${sfl2File}')
-      let document = \\$.NSKeyedUnarchiver.unarchiveObjectWithData(data)
-      let items = document.objectForKey('items')
-      let length = items.count
-      let keys = \\$([\\$.NSURLPathKey])
-      for (let i = 0; i < length; i++) {
-        try {
-          let item = items.objectAtIndex(i)
-          let source = item.objectForKey('Bookmark')
-          let dict = \\$.NSURL.resourceValuesForKeysFromBookmarkData(keys, source)
-          let path = dict.objectForKey('_NSURLPathKey')
-          paths.push(ObjC.unwrap(path))
-        } catch (e) {
-          continue
-        }
-      }
-    } catch (e) {}
-    paths`
+function getRecentsDir(isFinder: boolean) {
+  return isFinder ? baseRecentsDir : appsRecentsDir
 }
 
-async function recents(sfl2File: string) {
-  const { stdout } = await execCommand(
-    `osascript -l JavaScript -e "${getScript(sfl2File)}"`
-  )
+function existsSflFile(sflFileName: string, isFinder: boolean) {
+  const p = getRecentsDir(isFinder) + sflFileName + '.sfl'
+  return existsSync(p + 2) || existsSync(p + 3)
+}
+
+function getSflFile(sflFileName: string, isFinder: boolean) {
+  const p = getRecentsDir(isFinder) + sflFileName + '.sfl'
+  if (existsSync(p + 3)) return p + 3
+  return p + 2
+}
+
+function getScript(sflFile: string) {
+  return `
+    ObjC.import('Foundation')
+    const paths = []
+    const data = $.NSData.dataWithContentsOfFile('${sflFile}')
+    const document = $.NSKeyedUnarchiver.unarchiveObjectWithData(data)
+    const items = document.objectForKey('items')
+    const keys = ObjC.wrap([$.NSURLPathKey])
+    for (let i = 0; i < items.count; i++) {
+      try {
+        const item = items.objectAtIndex(i)
+        const bookmark = item.objectForKey('Bookmark')
+        const dict = $.NSURL.resourceValuesForKeysFromBookmarkData(keys, bookmark)
+        const path = dict.objectForKey('_NSURLPathKey')
+        paths.push(ObjC.unwrap(path))
+      } catch (e) {
+        continue
+      }
+    }
+    paths`.replace(/\$/g, '\\$')
+}
+
+async function recents(sflFile: string) {
+  const { stdout } = await execCommand(`osascript -l JavaScript -e "${getScript(sflFile)}"`)
   const items = stdout.split(', ')
   const n = items.length
   if (n > 0) {
@@ -47,33 +56,44 @@ async function recents(sfl2File: string) {
 }
 
 export function appRecentDocuments(appBundleId: string) {
-  return recents(appsRecentsDir + appBundleId + '.sfl2')
+  return recents(getSflFile(appBundleId, false))
 }
 
-export function finderRecents(sfl2FileName: string) {
-  return recents(baseRecentsDir + sfl2FileName)
+export function finderRecents(sflFileName: string) {
+  return recents(getSflFile(sflFileName, true))
 }
 
 export function openFile(file: string, app?: string) {
   return execCommand(`open ${app ? `-a "${app}"` : ''} "${file}"`)
 }
 
+function options(key: string, ...values: string[]) {
+  const args: string[] = []
+  for (const value of values) {
+    args.push(key, value)
+  }
+  return args
+}
+
 async function getApps() {
-  const attr = 'kMDItemCFBundleIdentifier'
+  const attrs = ['kMDItemCFBundleIdentifier', 'kMDItemDisplayName']
+  const dirs = ['/Applications', '/System/Applications', '/System/Library/CoreServices']
   const { stdout } = await spawnCommand('mdfind', [
-    `kMDItemContentTypeTree = 'com.apple.application'`,
-    '-attr',
-    attr,
-    '-onlyin',
-    '/'
+    `kMDItemContentTypeTree = 'com.apple.application' && kMDItemSupportFileType != MDSystemFile`,
+    ...options('-attr', ...attrs),
+    ...options('-onlyin', ...dirs)
   ])
   return stdout.split('\n').map((item) => {
     const arr = item.split('   ')
-    const attrValue = arr[1]?.replace(`${attr} = `, '')
+    const values: (string | null)[] = [arr[0]]
+    attrs.forEach((attr, i) => {
+      const value = arr[i + 1]?.replace(`${attr} = `, '')
+      values.push(value === undefined || value === '(null)' ? null : value)
+    })
     return {
-      path: arr[0],
-      bundleId:
-        attrValue === undefined || attrValue === '(null)' ? null : attrValue
+      path: values[0] as string,
+      bundleId: values[1],
+      displayName: values[2]
     }
   })
 }
@@ -85,7 +105,8 @@ async function getIdToAppMap() {
     const bundleId = app.bundleId?.toLowerCase()
     if (bundleId) {
       const name = path.basename(app.path)
-      const title = name.substring(0, name.lastIndexOf('.'))
+      const displayName = app.displayName || name
+      const title = displayName.substring(0, displayName.lastIndexOf('.'))
       const appInfo = new AppInfo(bundleId, title, name, app.path)
       map.set(bundleId, appInfo)
     }
@@ -95,18 +116,14 @@ async function getIdToAppMap() {
 
 function getFinderRecents() {
   const res: AppInfo[] = []
-  const recentApps = 'com.apple.LSSharedFileList.RecentApplications.sfl2'
-  const recentDocs = 'com.apple.LSSharedFileList.RecentDocuments.sfl2'
+  const recentApps = 'com.apple.LSSharedFileList.RecentApplications'
+  const recentDocs = 'com.apple.LSSharedFileList.RecentDocuments'
   const finder = '/System/Library/CoreServices/Finder.app'
-  if (existsSync(baseRecentsDir + recentApps)) {
-    res.push(
-      new AppInfo(recentApps, '最近的应用', 'Finder.app', finder, true)
-    )
+  if (existsSflFile(recentApps, true)) {
+    res.push(new AppInfo(recentApps, '访达最近的应用', 'Finder.app', finder, true))
   }
-  if (existsSync(baseRecentsDir + recentDocs)) {
-    res.push(
-      new AppInfo(recentDocs, '最近的文稿', 'Finder.app', finder, true)
-    )
+  if (existsSflFile(recentDocs, true)) {
+    res.push(new AppInfo(recentDocs, '访达最近的文稿', 'Finder.app', finder, true))
   }
   return res
 }

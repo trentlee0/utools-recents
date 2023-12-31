@@ -1,7 +1,7 @@
 import { StoreKey } from '@/constant'
 import SettingModel from '@/models/SettingModel'
 import { createPinia, defineStore } from 'pinia'
-import { storage, toMap } from 'utools-utils'
+import { sync, local, toMap } from 'utools-utils'
 import piniaPersistence from 'pinia-persistence'
 import { getRecentsApps } from '@/preload'
 import AppInfo from '@/models/AppInfo'
@@ -10,9 +10,9 @@ import { Action } from 'utools-api'
 import * as featureApi from '@/api/featureApi'
 
 function initSetting() {
-  const setting = storage.sync.get<SettingModel>(StoreKey.SETTING)
+  const setting = sync.get<SettingModel>(StoreKey.SETTING)
   if (setting === null) {
-    storage.sync.set(StoreKey.SETTING, new SettingModel())
+    sync.set(StoreKey.SETTING, new SettingModel())
   }
 }
 
@@ -25,7 +25,7 @@ export const useAppsStore = defineStore(StoreKey.APPS, {
   persist: {
     enable: true,
     map: toRaw,
-    storage: storage.local,
+    storage: local,
     persisted: (store) => {
       console.log('persisted: ', store.$state)
     }
@@ -35,14 +35,18 @@ export const useAppsStore = defineStore(StoreKey.APPS, {
       const added = new Array<AppInfo>()
 
       const newApps = await getRecentsApps()
-      console.log(newApps)
       const oldApps = toRaw(this.apps)
 
       const oldMap = toMap(oldApps, (app) => app.id)
 
       const newSet = new Set<string>()
       for (const newApp of newApps) {
-        const oldApp = oldMap.get(newApp.id)
+        let oldApp: AppInfo | undefined
+        if (newApp.isFinder) {
+          oldApp = oldMap.get(newApp.id + '.sfl2') || oldMap.get(newApp.id + '.sfl')
+        } else {
+          oldApp = oldMap.get(newApp.id)
+        }
         if (oldApp !== undefined) {
           // 已存在
           // newApp.title = oldApp.title
@@ -51,7 +55,9 @@ export const useAppsStore = defineStore(StoreKey.APPS, {
           newApp.enabled = oldApp.enabled
         } else {
           // 不存在
-          added.push(newApp)
+          if (!newApp.isFinder) {
+            added.push(newApp)
+          }
         }
         newSet.add(newApp.id)
       }
