@@ -13,7 +13,15 @@ const loading = ref(false)
 async function getApps() {
   loading.value = true
   const { removed, added } = await settingStore.refreshApps()
-  toast(`新增了 ${added.length} 个，移除了 ${removed.length} 个。`)
+  const addedNames = added.map((item) => item.name).join('、')
+  const removedNames = removed.map((item) => item.name).join('、')
+  toast(
+    `新增了 ${added.length} 个${
+      (addedNames ? '：' : '') + addedNames
+    }。<br/>移除了 ${removed.length} 个${
+      (removedNames ? '：' : '') + removedNames
+    }。`
+  )
   loading.value = false
 }
 
@@ -52,8 +60,7 @@ init()
 
 <template>
   <div class="toast-end toast toast-top z-10" v-show="toastOptions.show">
-    <div class="alert alert-success">
-      <span>{{ toastOptions.msg }}</span>
+    <div class="alert alert-success" v-html="toastOptions.msg">
     </div>
   </div>
 

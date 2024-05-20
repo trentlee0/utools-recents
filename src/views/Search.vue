@@ -3,7 +3,7 @@ import List from '@/components/List.vue'
 import { ref } from 'vue'
 import { onKeyDown, onStartTyping } from '@vueuse/core'
 import { hideAndOutPlugin, pinyinMatch } from 'utools-utils'
-import { appRecentDocuments, finderRecents, getFileName, openFile, existsPath } from '@/preload'
+import { appRecentDocuments, finderRecents, getFileName, openFile, existsPath, getFileIcon } from '@/preload'
 import NProgress from '@/utils/nprogress'
 import { hideMainWindow, setSubInput, setSubInputValue, subInputFocus } from 'utools-api'
 import { commonStore, useAppsStore } from '@/store'
@@ -42,7 +42,7 @@ async function getList() {
   list.value = res.map((file) => ({
     title: getFileName(file),
     subtitle: file,
-    icon: utools.getFileIcon(file)
+    icon: getFileIcon(file)
   }))
   filteredList.value = list.value
   activeIndex.value = getActiveIndex(list.value)

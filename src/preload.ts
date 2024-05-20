@@ -1,11 +1,12 @@
 import { existsSync, readdirSync } from 'fs'
 import { homedir } from 'os'
-import path from 'path'
+import path, { extname } from 'path'
 import { execCommand, spawnCommand } from 'utools-utils/preload'
 import AppInfo from '@/models/AppInfo'
 
 const baseRecentsDir = `${homedir()}/Library/Application Support/com.apple.sharedfilelist/`
-const appsRecentsDir = baseRecentsDir + 'com.apple.LSSharedFileList.ApplicationRecentDocuments/'
+const appsRecentsDir =
+  baseRecentsDir + 'com.apple.LSSharedFileList.ApplicationRecentDocuments/'
 
 function getRecentsDir(isFinder: boolean) {
   return isFinder ? baseRecentsDir : appsRecentsDir
@@ -45,7 +46,9 @@ function getScript(sflFile: string) {
 }
 
 async function recents(sflFile: string) {
-  const { stdout } = await execCommand(`osascript -l JavaScript -e "${getScript(sflFile)}"`)
+  const { stdout } = await execCommand(
+    `osascript -l JavaScript -e "${getScript(sflFile)}"`
+  )
   const items = stdout.split(', ')
   const n = items.length
   if (n > 0) {
@@ -77,7 +80,11 @@ function options(key: string, ...values: string[]) {
 
 async function getApps() {
   const attrs = ['kMDItemCFBundleIdentifier', 'kMDItemDisplayName']
-  const dirs = ['/Applications', '/System/Applications', '/System/Library/CoreServices']
+  const dirs = [
+    '/Applications',
+    '/System/Applications',
+    '/System/Library/CoreServices'
+  ]
   const { stdout } = await spawnCommand('mdfind', [
     `kMDItemContentTypeTree = 'com.apple.application' && kMDItemSupportFileType != MDSystemFile`,
     ...options('-attr', ...attrs),
@@ -120,10 +127,14 @@ function getFinderRecents() {
   const recentDocs = 'com.apple.LSSharedFileList.RecentDocuments'
   const finder = '/System/Library/CoreServices/Finder.app'
   if (existsSflFile(recentApps, true)) {
-    res.push(new AppInfo(recentApps, '访达最近的应用', 'Finder.app', finder, true))
+    res.push(
+      new AppInfo(recentApps, '访达最近的应用', 'Finder.app', finder, true)
+    )
   }
   if (existsSflFile(recentDocs, true)) {
-    res.push(new AppInfo(recentDocs, '访达最近的文稿', 'Finder.app', finder, true))
+    res.push(
+      new AppInfo(recentDocs, '访达最近的文稿', 'Finder.app', finder, true)
+    )
   }
   return res
 }
@@ -149,4 +160,10 @@ export function getFileName(filePath: string) {
 
 export function existsPath(path: string) {
   return existsSync(path)
+}
+
+export function getFileIcon(filePath: string) {
+  if (filePath.endsWith('.app')) return utools.getFileIcon(filePath)
+  const ext = extname(filePath)
+  return utools.getFileIcon(!ext ? filePath : ext)
 }
